@@ -1,0 +1,31 @@
+/* --- RESET LIMPO PARA MATERIAL UI --- */
+
+:root {
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+/* Essencial para responsividade: Garante que padding não estoure a largura */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #f4f6f8; /* Cor de fundo do Dashboard */
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden; /* Evita scroll horizontal indesejado no celular */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
