@@ -1,6 +1,6 @@
 const connectLegacy = require('../config/legacyDb');
 const SystemConfig = require('../models/SystemConfig');
-const digisatService = require('../services/digisatService'); // Importação do Serviço
+const digisatService = require('../services/digisatService');
 const { COLLECTION_PESSOAS, COLLECTION_OBJETOS, COLLECTION_TIPOS, COLLECTION_MOVIMENTACOES } = require('../config/digisatConstants');
 const { ObjectId } = require('mongodb-legacy');
 
@@ -24,7 +24,10 @@ exports.getLegacyOptions = async (req, res) => {
       tipos: tipos.map(t => ({ id: t._id, label: t.Descricao })),
       servicos: servicos.map(s => ({ id: s._id, label: `${s.CodigoInterno} - ${s.Descricao}` })),
       operacoes: operacoes.map(op => ({ id: op._id, label: `${op.Cfop?.Codigo} - ${op.Cfop?.Descricao}` })),
-      savedConfig: currentConfig ? currentConfig.digisat : {}
+      savedConfig: currentConfig ? {
+          ...currentConfig.digisat,
+          businessHours: currentConfig.businessHours
+      } : {}
     });
   } catch (error) {
     console.error(error);
@@ -35,12 +38,19 @@ exports.getLegacyOptions = async (req, res) => {
 // 2. Salvar Configuração
 exports.saveIntegrationConfig = async (req, res) => {
   try {
-    const { empresaId, objetoId, campoInicioId, campoFimId, produtoServicoId, operacaoFiscalId } = req.body;
+    const { 
+        empresaId, objetoId, campoInicioId, campoFimId, 
+        produtoServicoId, operacaoFiscalId,
+        businessHours 
+    } = req.body;
+
     await SystemConfig.findOneAndUpdate(
       { key: 'digisat_main' },
       { 
         digisat: { empresaId, objetoId, campoInicioId, campoFimId, produtoServicoId, operacaoFiscalId },
-        updatedBy: req.user.name, updatedAt: new Date()
+        businessHours: businessHours,
+        updatedBy: req.user.name, 
+        updatedAt: new Date()
       },
       { new: true, upsert: true }
     );
@@ -50,7 +60,7 @@ exports.saveIntegrationConfig = async (req, res) => {
   }
 };
 
-// 3. Smoke Test (Inserção Simples)
+// 3. Smoke Test
 exports.testLegacyInsert = async (req, res) => {
   try {
     const db = await connectLegacy();
@@ -74,12 +84,10 @@ exports.testLegacyRemove = async (req, res) => {
   }
 };
 
-// 4. LABORATÓRIO (Geração de OS Completa)
+// 4. LABORATÓRIO
 exports.testFullOsGeneration = async (req, res) => {
   try {
     const { clientName } = req.body;
-    
-    // Mock de Ticket
     const mockTicket = {
       _id: 'TESTE_LAB_' + Date.now(),
       client: clientName,
@@ -89,32 +97,24 @@ exports.testFullOsGeneration = async (req, res) => {
       startDateTime: new Date(),
       endDateTime: new Date(Date.now() + 3600000)
     };
-
     const result = await digisatService.createServiceOrder(mockTicket);
-
-    res.json({
-      message: 'OS Gerada!',
-      osNumber: result.numeroOs,
-      osId: result.insertedId
-    });
+    res.json({ message: 'OS Gerada!', osNumber: result.numeroOs, osId: result.insertedId });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// 5. ROLLBACK DE OS (Remoção Cirúrgica)
+// 5. ROLLBACK DE OS
 exports.rollbackTestOs = async (req, res) => {
   try {
     const { id } = req.params;
     const db = await connectLegacy();
-    
     const result = await db.collection(COLLECTION_MOVIMENTACOES).deleteOne({ _id: new ObjectId(id) });
-
     if (result.deletedCount > 0) {
       res.json({ message: 'OS de teste removida com sucesso.' });
     } else {
-      res.status(404).json({ message: 'OS não encontrada para remoção.' });
+      res.status(404).json({ message: 'OS não encontrada.' });
     }
   } catch (error) {
     console.error(error);

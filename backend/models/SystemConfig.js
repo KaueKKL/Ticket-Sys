@@ -8,19 +8,19 @@ const SystemConfigSchema = new mongoose.Schema({
     default: 'digisat_main' 
   },
   digisat: {
-    // Dados da Matriz e Objeto (Equipamento padrão)
     empresaId: { type: String, default: '' }, 
     objetoId: { type: String, default: '' },
-    
-    // Campos de Data/Hora personalizados (Opcionais)
     campoInicioId: { type: String, default: '' },
     campoFimId: { type: String, default: '' },
-
-    // --- NOVOS CAMPOS FINANCEIROS OBRIGATÓRIOS ---
-    // O ID do serviço "Hora Técnica" no ERP
     produtoServicoId: { type: String, default: '' }, 
-    // O ID da Operação Fiscal (CFOP) de Saída de Serviço (Ex: 5.933)
     operacaoFiscalId: { type: String, default: '' },
+  },
+  // --- NOVO: Configuração de Expediente ---
+  businessHours: {
+    start: { type: String, default: '07:30' },
+    end: { type: String, default: '17:30' },
+    lunchStart: { type: String, default: '12:00' },
+    lunchEnd: { type: String, default: '13:12' }
   },
   updatedBy: { type: String },
   updatedAt: { type: Date, default: Date.now }

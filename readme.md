@@ -1,139 +1,136 @@
-Ticket-Sys – Sistema de Gestão de Tickets Corporativo
+🎟️ Ticket-Sys (Enterprise Edition)
+Gestão Inteligente de Atendimentos Técnicos com Integração ERP Legada
 
-Uma plataforma robusta para gestão de atendimentos técnicos, cálculo de SLA e integração transparente com sistemas legados (ERP).
+O Ticket-Sys é uma plataforma full-stack projetada para resolver o desafio de modernizar o suporte técnico sem abandonar o sistema de gestão (ERP) legado da empresa. Ele atua como uma camada ágil de operação, permitindo controle de SLA, apontamento de horas preciso e, crucialmente, a geração automática de faturamento no banco de dados legado.
 
-🎯 Visão Geral
+🌟 Principais Funcionalidades
+1. ⏱️ Gestão de Tempo & SLA (Novo)
+Cronômetro Inteligente: O sistema calcula o tempo líquido trabalhado com precisão cirúrgica.
 
-O Ticket-Sys resolve o problema de gerir equipas de suporte técnico que precisam de mobilidade e precisão no apontamento de horas, sem perder a conexão com a base de dados de clientes antiga da empresa.
+Play/Pause Real: Botões de ação que registram o motivo da pausa (ex: "Almoço", "Peça Pendente").
 
-Principais Funcionalidades
+Desconto Automático: O status "Aguardando Cliente" pausa automaticamente o relógio, garantindo uma cobrança justa.
 
-✅ Gestão de SLA Inteligente: O sistema calcula automaticamente o tempo líquido trabalhado, descontando pausas como "Aguardando Cliente".
+2. 💸 Faturamento Automatizado (Billing)
+Geração de OS: Transforma tickets finalizados em Ordens de Serviço (DAV-OS) diretamente no ERP Digisat.
 
-✅ Busca Híbrida (Legacy Integration): Pesquisa clientes em tempo real numa base MongoDB 3.4 antiga, utilizando drivers nativos isolados, sem necessidade de migração de dados.
+Regra de Cobrança: Aplica regras de negócio configuráveis (ex: arredondamento para hora cheia Math.ceil).
 
-✅ Interface Mobile-First: Dashboard e Listas adaptam-se automaticamente para cartões em dispositivos móveis.
+Snapshots Fiscais: Cria cópias estáticas de Clientes e Serviços no momento da venda, garantindo integridade fiscal no ERP mesmo se o cadastro mudar depois.
 
-✅ Timeline de Atendimento: Registo de notas internas e histórico de alterações de estado.
+3. 🧬 Integração Híbrida (Legacy Integration)
+Dual Database: O Backend conecta simultaneamente ao MongoDB moderno (dados da aplicação) e ao MongoDB 3.4 (ERP Legado).
 
-✅ Dashboard Analítico: Indicadores de performance (KPIs) e gráficos de produtividade por técnico.
+Leitura em Tempo Real: Busca clientes e produtos diretamente da base legada.
 
-🛠️ Stack Tecnológico
+Escrita Segura: Injeta documentos complexos (Movimentacao, Parcela) seguindo estritamente o schema C#/.NET do sistema original.
 
-O projeto segue uma arquitetura Monorepo (Frontend e Backend no mesmo repositório).
+4. 🧪 Laboratório de Testes (Sandbox)
+Ambiente Seguro: Uma área dedicada nas configurações para testar a integração com o ERP.
 
-Backend (API REST)
+Rollback Automático: Permite gerar uma OS de teste real e removê-la com um clique, garantindo que a base de produção não fique suja.
 
-Runtime: Node.js + Express
+5. 📱 Interface Moderna
+Numeração Amigável: Tickets gerados com ID sequencial diário (ex: 202512020001) para fácil comunicação.
 
-Database (Core): MongoDB v6+ (via Mongoose)
+Mobile-First: Cards responsivos para técnicos em campo.
 
-Database (Legacy): MongoDB v3.4 (via Driver Nativo v3.7)
+Dashboard: KPIs de produtividade e gráficos de atendimento.
 
-Auth: JWT (JSON Web Tokens)
+🛠️ Arquitetura Técnica
+O projeto utiliza uma arquitetura Monorepo (Backend e Frontend no mesmo repositório).
 
-Testes: Jest + Supertest + MongoDB Memory Server
+Backend (Node.js + Express)
+Drivers:
 
-Frontend (SPA)
+mongoose: Para dados core (Tickets, Users).
 
-Framework: React + Vite
+mongodb-legacy: Driver nativo v3.7 para compatibilidade com MongoDB 3.4 (sem suporte a Promises modernas).
 
-UI Library: Material UI v6 (MUI)
+Services: Camada de abstração (digisatService.js) que isola a complexidade da montagem de objetos fiscais.
 
-Http Client: Axios (com Interceptors)
+Testes: Jest + Supertest com Mock manual de Date para testes de cronômetro sem flakiness.
 
-Charts: Recharts
+Frontend (React + Vite)
+UI: Material UI v6 (Grid v2).
 
-📸 Screenshots
+State: Context API para Autenticação.
 
-(Espaço reservado para adicionar imagens do Dashboard, Tela de Login e Mobile)
+Features: Listagem com filtros dinâmicos, Modais de ação rápida e Toast notifications.
 
-Dashboard (Desktop)
-
-Visualização Mobile
-
-
-
-
-
-🚀 Como Executar (Docker)
-
-A forma mais recomendada de subir o ambiente é utilizando Docker Compose.
-
+🚀 Guia de Instalação
 Pré-requisitos
+Node.js v18+
 
-Docker & Docker Compose
+MongoDB Local (para o Ticket-Sys)
 
-Acesso de rede ao servidor MongoDB Legado (v3.4)
+Acesso de rede ao Servidor MongoDB Legado (ERP)
 
-Passo a Passo
-
-Clone o repositório:
-
-git clone [https://github.com/seu-usuario/ticket-sys.git](https://github.com/seu-usuario/ticket-sys.git)
-cd ticket-sys
-
-
-Configure as Variáveis de Ambiente:
-Crie um arquivo .env na pasta backend/ (ou configure no docker-compose):
-
-MONGO_URI=mongodb://mongo_new:27017/ticket_system
-# Use host.docker.internal para acessar o banco legado na máquina host
-MONGO_LEGACY_URI=mongodb://host.docker.internal:12220/DigisatServer
-JWT_SECRET=sua_chave_secreta_segura
-
-
-Suba os contentores:
-
-docker-compose up -d --build
-
-
-Aceda à aplicação:
-
-Frontend: http://localhost:5173
-
-API: http://localhost:3033
-
-🧪 Testes Automatizados
-
-O sistema possui uma suíte de testes de integração cobrindo fluxos críticos (Auth, Tickets, Cálculo de Tempo).
-
-Para rodar os testes localmente:
+1. Backend
+Bash
 
 cd backend
 npm install
-npm test
 
+# Crie o arquivo .env com as configurações:
+# PORT=5000
+# MONGO_URI=mongodb://localhost:27017/ticketsys
+# MONGO_LEGACY_URI=mongodb://SERVIDOR_ERP:27017/Digisat
+# JWT_SECRET=sua_senha_secreta
 
-Nota: Os testes utilizam um banco em memória, não afetando os dados reais.
+npm run dev
+2. Frontend
+Bash
 
-📂 Estrutura do Projeto
+cd frontend
+npm install
+npm run dev
+⚙️ Configuração Inicial (Obrigatório)
+Antes de gerar o primeiro faturamento, é necessário configurar os parâmetros de integração:
 
+Acesse o sistema e vá em Configurações > Integração ERP.
+
+Defina a Empresa Matriz (Quem emite a nota).
+
+Selecione o Serviço Padrão (Ex: Hora Técnica).
+
+Selecione a Operação Fiscal (CFOP de Saída de Serviço).
+
+Configure o Horário de Expediente (para relatórios futuros).
+
+Salve. O indicador ficará Verde.
+
+🧪 Executando Testes
+O sistema possui uma suíte de testes robusta que valida desde o login até o cálculo matemático do tempo líquido.
+
+Bash
+
+cd backend
+npm test -- --runInBand
+A flag --runInBand é necessária para evitar conflitos de porta no banco em memória.
+
+📂 Estrutura de Pastas
 ticket-sys/
-├── backend/              # API Server
-│   ├── config/           # Conexão Híbrida (Legacy/New)
-│   ├── controllers/      # Lógica de Negócio
-│   ├── models/           # Schemas Mongoose
-│   ├── routes/           # Rotas Express
-│   └── tests/            # Testes Automatizados (Jest)
-├── frontend/             # React App
+├── backend/
+│   ├── config/           # Conexão com Legado (legacyDb.js)
+│   ├── controllers/      # Lógica (Billing, Ticket, Integration)
+│   ├── models/           # Schemas (incluindo TicketSequence)
+│   ├── services/         # Regras de Negócio Complexas (DigisatService)
+│   ├── utils/            # Helpers de conversão (C# Version, Snapshots)
+│   └── tests/            # Testes de Integração
+├── frontend/
 │   ├── src/
-│   │   ├── components/   # Componentes Reutilizáveis
-│   │   ├── context/      # AuthContext
-│   │   ├── layouts/      # Layout Mestre Responsivo
-│   │   ├── pages/        # Telas (Dashboard, Tickets, Settings)
-│   │   └── services/     # Configuração Axios
-└── docker-compose.yml    # Orquestração
+│   │   ├── pages/
+│   │   │   ├── Billing/  # Tela de Faturamento
+│   │   │   ├── Tickets/  # Listagem e Kanban
+│   │   │   └── Settings/ # Configuração e Laboratório
+│   │   └── services/     # API Client
+└── ...
+📅 Roadmap & Futuro
+[x] Fase 1: CRUD Tickets, Auth e Dashboard.
 
+[x] Fase 2: Integração Financeira (Geração de OS) e Cronômetro.
 
-📅 Roadmap v2.0
+[ ] Fase 3: Portal do Cliente para abertura de chamados.
 
-[ ] Websockets: Atualização do Dashboard em tempo real.
-
-[ ] Integração Financeira: Geração automática de cobrança no ERP Digisat.
-
-[ ] Relatórios PDF: Exportação de fecho mensal por cliente.
-
-📝 Licença
-
-Este projeto é proprietário e desenvolvido para uso interno corporativo.
+Desenvolvido por Kauê Keiser Lindner Versão: 1.0.0-pre-release

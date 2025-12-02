@@ -9,8 +9,7 @@ import {
 } from '@mui/material';
 import { 
   Add as AddIcon, Edit as EditIcon, SettingsInputComponent, People, 
-  CheckCircle, ErrorOutline, BugReport, DeleteForever, CloudUpload,
-  Science, ReceiptLong, Undo
+  CheckCircle, ErrorOutline, Science, ReceiptLong, Undo
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
@@ -28,11 +27,17 @@ const Settings = () => {
   // --- Estados Integração ---
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [integrationOptions, setIntegrationOptions] = useState({ empresas: [], objetos: [], tipos: [], servicos: [], operacoes: [] });
-  const [configData, setConfigData] = useState({ empresaId: '', objetoId: '', campoInicioId: '', campoFimId: '', produtoServicoId: '', operacaoFiscalId: '' });
+  
+  // Config Data: Adicionado businessHours
+  const [configData, setConfigData] = useState({ 
+    empresaId: '', objetoId: '', campoInicioId: '', campoFimId: '', 
+    produtoServicoId: '', operacaoFiscalId: '',
+    businessHours: { start: '07:30', end: '17:30', lunchStart: '12:00', lunchEnd: '13:12' }
+  });
 
   // --- Estados Laboratório ---
   const [labClient, setLabClient] = useState('');
-  const [lastOsId, setLastOsId] = useState(null); // Guarda o ID da última OS gerada para Rollback
+  const [lastOsId, setLastOsId] = useState(null); 
   const [lastOsNumber, setLastOsNumber] = useState(null);
   const [testingLab, setTestingLab] = useState(false);
 
@@ -56,9 +61,17 @@ const Settings = () => {
     try {
       const res = await api.get('/integration/options');
       setIntegrationOptions(res.data);
-      if (res.data.savedConfig) setConfigData({ ...configData, ...res.data.savedConfig });
+      if (res.data.savedConfig) {
+          setConfigData({ 
+              ...configData, 
+              ...res.data.savedConfig,
+              // Garante que businessHours exista mesmo se vier vazio do banco antigo
+              businessHours: res.data.savedConfig.businessHours || { start: '07:30', end: '17:30', lunchStart: '12:00', lunchEnd: '13:12' }
+          });
+      }
     } catch (e) { toast.error('Erro conexão ERP'); } finally { setLoadingConfig(false); }
   };
+
   const saveConfig = async () => { try { await api.post('/integration/config', configData); toast.success('Salvo!'); } catch (e) { toast.error('Erro salvar'); } };
 
   // --- Funções Laboratório ---
@@ -178,6 +191,16 @@ const Settings = () => {
                 <FormControl fullWidth size="small"><InputLabel>Data Início</InputLabel><Select value={configData.campoInicioId} label="Data Início" onChange={e => setConfigData({...configData, campoInicioId: e.target.value})}><MenuItem value=""><em>Nenhum</em></MenuItem>{integrationOptions.tipos?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}</Select></FormControl>
                 <FormControl fullWidth size="small"><InputLabel>Data Fim</InputLabel><Select value={configData.campoFimId} label="Data Fim" onChange={e => setConfigData({...configData, campoFimId: e.target.value})}><MenuItem value=""><em>Nenhum</em></MenuItem>{integrationOptions.tipos?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}</Select></FormControl>
               </Box>
+
+              {/* --- NOVO BLOCO: HORÁRIO DE EXPEDIENTE --- */}
+              <Divider textAlign="left"><Chip label="Horário de Expediente" color="secondary" /></Divider>
+              <Box display="flex" gap={2} flexWrap="wrap">
+                <TextField label="Início" type="time" value={configData.businessHours?.start} onChange={e => setConfigData({...configData, businessHours: {...configData.businessHours, start: e.target.value}})} InputLabelProps={{ shrink: true }} sx={{ width: 130 }} />
+                <TextField label="Início Almoço" type="time" value={configData.businessHours?.lunchStart} onChange={e => setConfigData({...configData, businessHours: {...configData.businessHours, lunchStart: e.target.value}})} InputLabelProps={{ shrink: true }} sx={{ width: 130 }} />
+                <TextField label="Fim Almoço" type="time" value={configData.businessHours?.lunchEnd} onChange={e => setConfigData({...configData, businessHours: {...configData.businessHours, lunchEnd: e.target.value}})} InputLabelProps={{ shrink: true }} sx={{ width: 130 }} />
+                <TextField label="Fim" type="time" value={configData.businessHours?.end} onChange={e => setConfigData({...configData, businessHours: {...configData.businessHours, end: e.target.value}})} InputLabelProps={{ shrink: true }} sx={{ width: 130 }} />
+              </Box>
+              {/* ------------------------------------------ */}
 
               <Button variant="contained" onClick={saveConfig}>Salvar Configurações</Button>
             </Box>

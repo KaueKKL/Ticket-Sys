@@ -4,23 +4,23 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 let mongoServer;
 
 const connectDB = async () => {
-  // Fecha conexões anteriores
+  // Garante desconexão prévia
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
   
+  // Cria o servidor
   mongoServer = await MongoMemoryServer.create();
   const uri = mongoServer.getUri();
 
-  // TRUQUE DE MESTRE:
-  // Apontamos ambas as variáveis para o mesmo banco em memória.
-  // Assim, podemos "seedar" (plantar) dados falsos do ERP usando Mongoose ou Driver Nativo
-  // e o seu código vai achar que está falando com o servidor real.
   process.env.MONGO_URI = uri;
   process.env.MONGO_LEGACY_URI = uri; 
   process.env.JWT_SECRET = 'segredo_fixo_para_testes_123';
 
-  await mongoose.connect(uri);
+  // Conecta com timeout maior para evitar flakiness
+  await mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 5000
+  });
 };
 
 const closeDB = async () => {
