@@ -12,6 +12,7 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/clients', clientRoutes);
+app.use('/api/integration', require('./routes/integrationRoutes'));
 
 
 module.exports = app;
