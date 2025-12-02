@@ -11,7 +11,8 @@ import {
 import { 
   Add as AddIcon, Search as SearchIcon, Edit as EditIcon, 
   Delete as DeleteIcon, CheckCircle, PauseCircle, PlayCircle,
-  PersonSearch, FilterList, Comment, Send, CalendarToday, Person
+  PersonSearch, FilterList, Comment, Send, CalendarToday, Person,
+  ConfirmationNumberOutlined // <--- Importei o ícone do ticket
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
@@ -26,8 +27,10 @@ const TicketList = () => {
   const { user } = useContext(AuthContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFinalized, setShowFinalized] = useState(false);
-  // FIX 1: Inicializa com 'Todos' para evitar erro de "out-of-range" antes dos usuários carregarem
+  
+  // FIX 1: Inicializa com 'Todos' para evitar warning do Select
   const [technicianFilter, setTechnicianFilter] = useState('Todos');
+  
   const [open, setOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
   const [formData, setFormData] = useState({ client: '', reason: '', solution: '', status: 'Em Andamento' });
@@ -43,7 +46,16 @@ const TicketList = () => {
   useEffect(() => { fetchUsers(); }, []);
   useEffect(() => { fetchTickets(); }, [technicianFilter]);
 
-  const fetchUsers = async () => { try { const res = await api.get('/users'); setUsers(res.data); } catch (e) {} };
+  const fetchUsers = async () => { 
+    try { 
+      const res = await api.get('/users'); 
+      setUsers(res.data); 
+      if (user?.name) {
+        setTechnicianFilter(user.name);
+      }
+
+    } catch (e) {} 
+  };
   const fetchTickets = async () => { setLoading(true); try { const res = await api.get(`/tickets?technician=${technicianFilter}`); setTickets(res.data); } catch (e) { toast.error('Erro ao carregar'); } finally { setLoading(false); } };
 
   const fetchClients = useMemo(() => throttle(async (req, cb) => {
@@ -94,6 +106,9 @@ const TicketList = () => {
     catch (e) { toast.error('Erro nota'); } finally { setLoadingNote(false); }
   };
 
+  // Função auxiliar para mostrar o ID Bonito
+  const getTicketNumber = (t) => t.ticketNumber || t._id.slice(-6).toUpperCase();
+
   const filtered = tickets.filter(t => (t.client.toLowerCase().includes(searchTerm.toLowerCase()) && (showFinalized ? true : t.status !== 'Finalizado')));
   const getStatusColor = (s) => s === 'Em Andamento' ? 'success' : s === 'Aguardando Cliente' ? 'warning' : 'default';
 
@@ -122,7 +137,7 @@ const TicketList = () => {
         <FormControlLabel control={<Switch checked={showFinalized} onChange={(e) => setShowFinalized(e.target.checked)} />} label={<Typography variant="body2" whiteSpace="nowrap">Histórico</Typography>} />
       </Paper>
 
-      {/* Lista de Tickets (Cards no Mobile, Tabela no Desktop) */}
+      {/* Lista de Tickets */}
       {isMobile ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {filtered.length === 0 ? (
@@ -131,35 +146,31 @@ const TicketList = () => {
             filtered.map((t) => (
               <Card key={t._id} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3 }}>
                 <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  {/* Cabeçalho do Card */}
+                  {/* Cabeçalho do Card - Mobile */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.2 }}>{t.client}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                        <CalendarToday sx={{ fontSize: 12 }} />
+                        {/* NOVO: Exibição do Número no Mobile */}
+                        <ConfirmationNumberOutlined sx={{ fontSize: 14 }} />
+                        <Typography variant="caption" fontWeight="bold">#{getTicketNumber(t)}</Typography>
+                        <Typography variant="caption">•</Typography>
                         <Typography variant="caption">{format(new Date(t.createdAt), 'dd/MM HH:mm')}</Typography>
                       </Box>
                     </Box>
                     <Chip label={t.status} color={getStatusColor(t.status)} size="small" sx={{ height: 24, fontSize: '0.7rem' }} />
                   </Box>
                   
-                  {/* Motivo */}
                   <Typography variant="body2" color="text.secondary" sx={{ 
                     mb: 2, 
-                    display: '-webkit-box', 
-                    WebkitLineClamp: 2, 
-                    WebkitBoxOrient: 'vertical', 
-                    overflow: 'hidden',
-                    bgcolor: '#f8fafc',
-                    p: 1,
-                    borderRadius: 1
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    bgcolor: '#f8fafc', p: 1, borderRadius: 1
                   }}>
                     {t.reason}
                   </Typography>
 
                   <Divider sx={{ my: 1 }} />
 
-                  {/* Rodapé do Card */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem', bgcolor: 'primary.light' }}>{t.technician.charAt(0)}</Avatar>
@@ -176,10 +187,13 @@ const TicketList = () => {
           )}
         </Box>
       ) : (
+        // Tabela Desktop
         <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflowX: 'auto', maxHeight: '65vh' }}>
           <Table stickyHeader sx={{ minWidth: 650 }}>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
+                {/* NOVO: Coluna Nº */}
+                <TableCell width={120}><strong>Nº Ticket</strong></TableCell>
                 <TableCell><strong>Data</strong></TableCell>
                 <TableCell><strong>Cliente</strong></TableCell>
                 <TableCell><strong>Motivo</strong></TableCell>
@@ -191,6 +205,15 @@ const TicketList = () => {
             <TableBody>
               {filtered.map((t) => (
                 <TableRow key={t._id} hover>
+                  {/* NOVO: Célula do Número */}
+                  <TableCell>
+                    <Chip 
+                      label={`#${getTicketNumber(t)}`} 
+                      size="small" 
+                      variant="outlined" 
+                      sx={{ fontWeight: 'bold', bgcolor: 'white', fontSize: '0.75rem' }}
+                    />
+                  </TableCell>
                   <TableCell>{format(new Date(t.createdAt), 'dd/MM HH:mm')}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{t.client}</TableCell>
                   <TableCell sx={{ maxWidth: 300, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.reason}</TableCell>
@@ -212,13 +235,14 @@ const TicketList = () => {
       {/* Modal Nova/Editar */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: '800', borderBottom: '1px solid #f1f5f9', bgcolor: isMobile ? 'primary.main' : 'white', color: isMobile ? 'white' : 'inherit' }}>
-          {editingTicket ? `Ticket #${editingTicket._id.slice(-6)}` : 'Novo Atendimento'}
+          {/* Título com o Número do Ticket */}
+          {editingTicket ? `Ticket #${getTicketNumber(editingTicket)}` : 'Novo Atendimento'}
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
           <Grid container sx={{ height: editingTicket && !isMobile ? 550 : 'auto' }}>
             
             {/* Esquerda: Formulário */}
-            {/* FIX 2: Uso correto do Grid V2 (size) */}
+            {/* FIX 2: Uso do Grid V2 (size) */}
             <Grid size={{ xs: 12, md: editingTicket ? 7 : 12 }} sx={{ p: 3, borderRight: { md: '1px solid #f1f5f9' }, borderBottom: { xs: '1px solid #f1f5f9', md: 'none' } }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <Autocomplete freeSolo options={clientOptions} getOptionLabel={(opt) => (typeof opt === 'string' ? opt : opt.name)} value={formData.client} disabled={!!editingTicket} onChange={(e, val) => setFormData({ ...formData, client: val })} onInputChange={(e, val) => setInputValue(val)} renderInput={(params) => (<TextField {...params} label="Cliente" InputProps={{ ...params.InputProps, startAdornment: <InputAdornment position="start"><PersonSearch color="primary"/></InputAdornment>, endAdornment: (<>{loadingClients ? <CircularProgress size={20} /> : null}{params.InputProps.endAdornment}</>) }} />)} />
@@ -241,7 +265,6 @@ const TicketList = () => {
 
             {/* Direita: Chat/Notas */}
             {editingTicket && (
-              // FIX 2: Uso correto do Grid V2 (size)
               <Grid size={{ xs: 12, md: 5 }} sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#fafafa', height: { xs: 400, md: 'auto' } }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}><Typography variant="subtitle2" fontWeight="bold">Observações</Typography></Box>
                 <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>

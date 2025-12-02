@@ -1,8 +1,7 @@
 const mongoose = require('mongoose');
 
 const TicketSchema = new mongoose.Schema({
-  // --- NOVO CAMPO ---
-  ticketNumber: { type: String, unique: true }, // Ex: "202512010001"
+  ticketNumber: { type: String, unique: true },
   
   client: { type: String, required: true },
   technician: { type: String, required: true },
@@ -19,21 +18,12 @@ const TicketSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   
-  // Controle de Tempo
   startDateTime: { type: Date, default: Date.now },
   endDateTime: { type: Date },
-  totalTime: { type: Number, default: 0 }, // Em minutos
-  
-  // --- NOVO: Controle de Pausas (Opcional, mas bom ter estrutura) ---
-  pauses: [{
-    start: Date,
-    end: Date,
-    reason: String
-  }],
+  totalTime: { type: Number, default: 0 }, 
 
-  // Integração ERP (Billing)
   davNumero: { type: Number },
-  davId: { type: String }, // ID do Mongo Legado
+  davId: { type: String },
   billingStatus: { type: String, default: 'Pendente' },
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

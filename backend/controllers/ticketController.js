@@ -1,26 +1,27 @@
 const Ticket = require('../models/Ticket');
-const TicketSequence = require('../models/TicketSequence'); // Necessário para o número 2025...
+const TicketSequence = require('../models/TicketSequence');
 
-// @desc    Cria novo ticket com numeração sequencial diária
-// @route   POST /api/tickets
 exports.createTicket = async (req, res) => {
   try {
     const { client, reason, status, solution } = req.body;
 
-    // 1. Geração do Número Sequencial (YYYYMMDDxxxx)
+    // 1. Gera a data invertida (YYYYMMDD)
     const today = new Date();
-    const dateStr = today.toISOString().slice(0,10).replace(/-/g, ''); // "20251202"
+    const dateStr = today.getFullYear().toString() + 
+                    (today.getMonth() + 1).toString().padStart(2, '0') + 
+                    today.getDate().toString().padStart(2, '0');
     
+    // 2. Busca e incrementa a sequência do dia
     const sequence = await TicketSequence.findOneAndUpdate(
       { date: dateStr },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
 
+    // 3. Formata o número final (Data + Sequência de 4 dígitos)
     const seqStr = sequence.seq.toString().padStart(4, '0');
     const newTicketNumber = `${dateStr}${seqStr}`;
 
-    // 2. Criação do Ticket
     const ticket = await Ticket.create({
       ticketNumber: newTicketNumber,
       client,
@@ -29,19 +30,18 @@ exports.createTicket = async (req, res) => {
       status: status || 'Em Andamento',
       solution,
       createdBy: req.user._id,
-      startDateTime: new Date(), // Marca o início agora
+      startDateTime: new Date(),
       totalTime: 0
     });
 
     res.status(201).json(ticket);
   } catch (error) {
-    console.error('Erro ao criar ticket:', error);
-    res.status(400).json({ message: 'Erro ao criar ticket. Verifique os dados.' });
+    console.error('Erro create ticket:', error);
+    res.status(400).json({ message: 'Erro ao criar ticket.' });
   }
 };
 
-// @desc    Lista tickets com filtros
-// @route   GET /api/tickets
+// @desc    Lista tickets
 exports.getTickets = async (req, res) => {
   try {
     const { technician, status, client, billingStatus } = req.query;
@@ -66,8 +66,6 @@ exports.getTickets = async (req, res) => {
   }
 };
 
-// @desc    Busca um ticket
-// @route   GET /api/tickets/:id
 exports.getTicketById = async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id);
@@ -78,8 +76,7 @@ exports.getTicketById = async (req, res) => {
   }
 };
 
-// @desc    Atualiza ticket (Status, Solução, Tempo)
-// @route   PUT /api/tickets/:id
+// @desc    Atualiza ticket (Correção do Erro 400)
 exports.updateTicket = async (req, res) => {
   try {
     const { status, solution, client, reason } = req.body;
@@ -87,25 +84,24 @@ exports.updateTicket = async (req, res) => {
 
     if (!ticket) return res.status(404).json({ message: 'Ticket não encontrado' });
 
-    // Atualiza campos básicos
     if (client) ticket.client = client;
     if (reason) ticket.reason = reason;
     if (solution) ticket.solution = solution;
 
-    // Lógica de mudança de status
+    // Mudança de Status
     if (status && status !== ticket.status) {
       ticket.status = status;
 
-      // Se finalizou, calcula o tempo total
+      // Se finalizou, calcula tempo automaticamente (Fim - Início)
       if (status === 'Finalizado') {
         const end = new Date();
         ticket.endDateTime = end;
         
-        // Cálculo Simples: Fim - Início (em minutos)
         if (ticket.startDateTime) {
           const diffMs = end - new Date(ticket.startDateTime);
           const minutes = Math.floor(diffMs / 60000);
-          ticket.totalTime = minutes > 0 ? minutes : 1; // Mínimo 1 minuto se for muito rápido
+          // Garante pelo menos 1 min se for muito rápido, ou mantém o que já tinha se for maior
+          ticket.totalTime = Math.max(minutes, ticket.totalTime || 0); 
         }
       }
     }
@@ -113,25 +109,18 @@ exports.updateTicket = async (req, res) => {
     await ticket.save();
     res.json(ticket);
   } catch (error) {
-    console.error('Erro update:', error);
+    console.error('Erro update ticket:', error);
     res.status(400).json({ message: error.message });
   }
 };
 
-// @desc    Adiciona nota
-// @route   POST /api/tickets/:id/notes
 exports.addTicketNote = async (req, res) => {
   try {
     const { text } = req.body;
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ message: 'Ticket não encontrado' });
 
-    ticket.notes.push({
-      text,
-      createdBy: req.user.name,
-      createdAt: new Date()
-    });
-
+    ticket.notes.push({ text, createdBy: req.user.name, createdAt: new Date() });
     await ticket.save();
     res.json(ticket);
   } catch (error) {
@@ -139,8 +128,6 @@ exports.addTicketNote = async (req, res) => {
   }
 };
 
-// @desc    Deleta ticket
-// @route   DELETE /api/tickets/:id
 exports.deleteTicket = async (req, res) => {
   try {
     await Ticket.findByIdAndDelete(req.params.id);
