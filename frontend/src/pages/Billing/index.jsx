@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   Box, Typography, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Button, Chip, 
-  CircularProgress, IconButton, Tooltip 
+  CircularProgress
 } from '@mui/material';
 import { 
   ReceiptLong, CheckCircle, MonetizationOn, AccessTime 
@@ -23,9 +23,9 @@ const Billing = () => {
   const fetchTickets = async () => {
     try {
       const res = await api.get('/tickets');
-      // Filtra apenas tickets FECHADOS para faturamento
+      // Filtra tickets FINALIZADOS (Corrigido)
       const closedTickets = res.data.filter(t => t.status === 'Finalizado');
-      // Ordena: Primeiro os sem OS (pendentes), depois os mais recentes
+      
       closedTickets.sort((a, b) => {
         if (a.davNumero && !b.davNumero) return 1;
         if (!a.davNumero && b.davNumero) return -1;
@@ -40,13 +40,13 @@ const Billing = () => {
   };
 
   const handleGenerateOS = async (ticket) => {
-    if (!window.confirm(`Confirma a geração de OS para o cliente ${ticket.client}? Isso enviará os dados para o ERP.`)) return;
+    if (!window.confirm(`Confirma a geração de OS para o cliente ${ticket.client}?`)) return;
 
     setProcessingId(ticket._id);
     try {
       const res = await api.post('/billing/generate', { ticketId: ticket._id });
       toast.success(`OS Nº ${res.data.numero} gerada com sucesso!`);
-      fetchTickets(); // Recarrega a lista
+      fetchTickets();
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || 'Erro ao gerar OS.');
@@ -55,7 +55,6 @@ const Billing = () => {
     }
   };
 
-  // Formata minutos para HH:mm
   const formatTime = (minutes) => {
     if (!minutes) return '00:00';
     const h = Math.floor(minutes / 60);
@@ -77,7 +76,7 @@ const Billing = () => {
           <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>
         ) : tickets.length === 0 ? (
           <Box p={4} textAlign="center">
-            <Typography color="text.secondary">Nenhum ticket fechado disponível para faturamento.</Typography>
+            <Typography color="text.secondary">Nenhum ticket finalizado disponível.</Typography>
           </Box>
         ) : (
           <TableContainer>
@@ -87,16 +86,25 @@ const Billing = () => {
                   <TableCell><strong>Cliente</strong></TableCell>
                   <TableCell><strong>Assunto / Data</strong></TableCell>
                   <TableCell><strong>Tempo</strong></TableCell>
-                  <TableCell><strong>Valor Est. (R$)</strong></TableCell>
+                  <TableCell><strong>Cobrança (Est.)</strong></TableCell>
                   <TableCell align="center"><strong>Status ERP</strong></TableCell>
                   <TableCell align="right"><strong>Ação</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {tickets.map((ticket) => {
-                  // Cálculo Estimado Visual (Apenas visual, o backend recalcula)
-                  const horas = ticket.totalTime ? ticket.totalTime / 60 : 0;
-                  const valorEstimado = (horas * 150).toFixed(2); // R$ 150/h base
+                  // --- LÓGICA DE PRECIFICAÇÃO (FRONTEND) ---
+                  const minutos = ticket.totalTime || 0;
+                  const horasReais = minutos / 60;
+                  
+                  // Regra: Arredondar para cima (Teto)
+                  // Ex: 30min (0.5) -> 1h
+                  // Ex: 1h10 (1.16) -> 2h
+                  let horasCobradas = Math.ceil(horasReais);
+                  if (horasCobradas < 1) horasCobradas = 1; // Mínimo 1h
+
+                  const precoHora = 50.00; // Valor Base
+                  const valorTotal = (horasCobradas * precoHora).toFixed(2);
 
                   return (
                     <TableRow key={ticket._id} hover>
@@ -115,15 +123,21 @@ const Billing = () => {
                       <TableCell>
                         <Chip 
                           icon={<AccessTime />} 
-                          label={formatTime(ticket.totalTime)} 
+                          label={formatTime(minutos)} 
                           size="small" 
                           variant="outlined" 
                         />
+                        {/* Mostra a conversão se houver arredondamento */}
+                        {horasCobradas > horasReais && (
+                          <Typography variant="caption" display="block" color="error.main" sx={{ mt: 0.5 }}>
+                            Arredondado: {horasCobradas}h
+                          </Typography>
+                        )}
                       </TableCell>
 
                       <TableCell>
                         <Typography color="success.main" fontWeight="bold">
-                          R$ {valorEstimado}
+                          R$ {valorTotal}
                         </Typography>
                       </TableCell>
 

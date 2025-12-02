@@ -1,63 +1,44 @@
 const mongoose = require('mongoose');
 
 const TicketSchema = new mongoose.Schema({
-  client: { 
-    type: String, 
-    required: [true, 'O nome do cliente é obrigatório'] 
-  },
-  reason: { 
-    type: String, 
-    required: [true, 'O motivo do chamado é obrigatório'] 
-  },
-  solution: { 
-    type: String, 
-    default: '' 
-  },
-  technician: { 
-    type: String, 
-    required: [true, 'O nome do técnico é obrigatório'] 
-  },
+  // --- NOVO CAMPO ---
+  ticketNumber: { type: String, unique: true }, // Ex: "202512010001"
+  
+  client: { type: String, required: true },
+  technician: { type: String, required: true },
+  reason: { type: String, required: true },
   status: { 
     type: String, 
-    enum: ['Em Andamento', 'Aguardando Cliente', 'Finalizado'],
-    default: 'Em Andamento'
+    enum: ['Em Andamento', 'Aguardando Cliente', 'Finalizado', 'Fechado'], 
+    default: 'Em Andamento' 
   },
-  startDateTime: { 
-    type: Date, 
-    required: true, 
-    default: Date.now 
-  },
-  endDateTime: { 
-    type: Date 
-  },
-  totalTime: { 
-    type: Number, 
-    default: 0 
-  },
-  statusHistory: [{
-    status: { type: String, required: true },
-    changedAt: { type: Date, default: Date.now }
-  }],
-  // --- NOVO CAMPO: OBSERVAÇÕES INTERNAS ---
+  solution: { type: String },
   notes: [{
-    text: { type: String, required: true },
-    createdBy: { type: String, required: true }, // Nome do técnico que escreveu
+    text: String,
+    createdBy: String,
     createdAt: { type: Date, default: Date.now }
   }],
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
-});
+  
+  // Controle de Tempo
+  startDateTime: { type: Date, default: Date.now },
+  endDateTime: { type: Date },
+  totalTime: { type: Number, default: 0 }, // Em minutos
+  
+  // --- NOVO: Controle de Pausas (Opcional, mas bom ter estrutura) ---
+  pauses: [{
+    start: Date,
+    end: Date,
+    reason: String
+  }],
 
-// Hook para status inicial
-TicketSchema.pre('save', async function() {
-  if (this.isNew && this.statusHistory.length === 0) {
-    this.statusHistory.push({
-      status: this.status,
-      changedAt: this.startDateTime || new Date()
-    });
-  }
+  // Integração ERP (Billing)
+  davNumero: { type: Number },
+  davId: { type: String }, // ID do Mongo Legado
+  billingStatus: { type: String, default: 'Pendente' },
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 module.exports = mongoose.model('Ticket', TicketSchema);
