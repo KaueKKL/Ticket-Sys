@@ -8,7 +8,8 @@ const TicketSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   status: { 
     type: String, 
-    enum: ['Em Andamento', 'Aguardando Cliente', 'Finalizado', 'Fechado'], 
+    // --- ADICIONADO 'Pausado' NA LISTA ---
+    enum: ['Em Andamento', 'Aguardando Cliente', 'Pausado', 'Finalizado', 'Fechado'], 
     default: 'Em Andamento' 
   },
   solution: { type: String },
@@ -20,7 +21,13 @@ const TicketSchema = new mongoose.Schema({
   
   startDateTime: { type: Date, default: Date.now },
   endDateTime: { type: Date },
-  totalTime: { type: Number, default: 0 }, 
+  totalTime: { type: Number, default: 0 },
+  
+  pauses: [{
+    start: Date,
+    end: Date,
+    reason: String
+  }],
 
   davNumero: { type: Number },
   davId: { type: String },
