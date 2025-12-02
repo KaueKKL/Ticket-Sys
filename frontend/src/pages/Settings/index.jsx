@@ -4,11 +4,13 @@ import {
   TableContainer, TableHead, TableRow, Chip, IconButton, 
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControlLabel, Switch, useMediaQuery, useTheme,
-  Divider, Tabs, Tab, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert
+  Divider, Tabs, Tab, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert,
+  Stack
 } from '@mui/material';
 import { 
   Add as AddIcon, Edit as EditIcon, SettingsInputComponent, People, 
-  CheckCircle, ErrorOutline
+  CheckCircle, ErrorOutline, BugReport, DeleteForever, CloudUpload,
+  Science, ReceiptLong, Undo
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
@@ -25,13 +27,14 @@ const Settings = () => {
   
   // --- Estados Integração ---
   const [loadingConfig, setLoadingConfig] = useState(false);
-  const [integrationOptions, setIntegrationOptions] = useState({ 
-    empresas: [], objetos: [], tipos: [], servicos: [], operacoes: [] 
-  });
-  const [configData, setConfigData] = useState({ 
-    empresaId: '', objetoId: '', campoInicioId: '', campoFimId: '', 
-    produtoServicoId: '', operacaoFiscalId: '' 
-  });
+  const [integrationOptions, setIntegrationOptions] = useState({ empresas: [], objetos: [], tipos: [], servicos: [], operacoes: [] });
+  const [configData, setConfigData] = useState({ empresaId: '', objetoId: '', campoInicioId: '', campoFimId: '', produtoServicoId: '', operacaoFiscalId: '' });
+
+  // --- Estados Laboratório ---
+  const [labClient, setLabClient] = useState('');
+  const [lastOsId, setLastOsId] = useState(null); // Guarda o ID da última OS gerada para Rollback
+  const [lastOsNumber, setLastOsNumber] = useState(null);
+  const [testingLab, setTestingLab] = useState(false);
 
   const { user } = useContext(AuthContext);
   const theme = useTheme();
@@ -42,57 +45,52 @@ const Settings = () => {
     if (tabValue === 1) fetchIntegrationOptions();
   }, [tabValue]);
 
-  // --- Lógica Usuários ---
-  const fetchUsers = async () => { try { const res = await api.get('/users'); setUsers(res.data); } catch (e) { toast.error('Erro ao listar usuários'); } };
-  const handleOpenUserModal = (u = null) => { 
-    if(u) { setEditingUserId(u._id); setUserFormData({name: u.name, email: u.email, password: '', isAdmin: u.isAdmin}); } 
-    else { setEditingUserId(null); setUserFormData({name:'', email:'', password:'', isAdmin:false}); } 
-    setOpenUserModal(true); 
-  };
-  const handleUserSubmit = async () => { 
-    try { 
-      if(!userFormData.name || !userFormData.email) return toast.warning('Dados vazios'); 
-      if(editingUserId) await api.put(`/users/${editingUserId}`, userFormData); 
-      else await api.post('/users', userFormData); 
-      toast.success('Salvo!'); setOpenUserModal(false); fetchUsers(); 
-    } catch(e) { toast.error(e.response?.data?.message); } 
-  };
+  // --- Funções Usuários ---
+  const fetchUsers = async () => { try { const res = await api.get('/users'); setUsers(res.data); } catch (e) { toast.error('Erro usuários'); } };
+  const handleOpenUserModal = (u = null) => { if(u) { setEditingUserId(u._id); setUserFormData({name: u.name, email: u.email, password: '', isAdmin: u.isAdmin}); } else { setEditingUserId(null); setUserFormData({name:'', email:'', password:'', isAdmin:false}); } setOpenUserModal(true); };
+  const handleUserSubmit = async () => { try { if(!userFormData.name) return; if(editingUserId) await api.put(`/users/${editingUserId}`, userFormData); else await api.post('/users', userFormData); toast.success('Salvo!'); setOpenUserModal(false); fetchUsers(); } catch(e) { toast.error('Erro salvar'); } };
 
-  // --- LÓGICA INTEGRAÇÃO ---
+  // --- Funções Integração ---
   const fetchIntegrationOptions = async () => {
     setLoadingConfig(true);
     try {
       const res = await api.get('/integration/options');
-      setIntegrationOptions({ 
-        empresas: res.data.empresas, 
-        objetos: res.data.objetos, 
-        tipos: res.data.tipos,
-        servicos: res.data.servicos || [],
-        operacoes: res.data.operacoes || []
-      });
-      if (res.data.savedConfig) {
-        setConfigData({
-          empresaId: res.data.savedConfig.empresaId || '',
-          objetoId: res.data.savedConfig.objetoId || '',
-          campoInicioId: res.data.savedConfig.campoInicioId || '',
-          campoFimId: res.data.savedConfig.campoFimId || '',
-          produtoServicoId: res.data.savedConfig.produtoServicoId || '',
-          operacaoFiscalId: res.data.savedConfig.operacaoFiscalId || ''
-        });
-      }
-    } catch (e) { 
+      setIntegrationOptions(res.data);
+      if (res.data.savedConfig) setConfigData({ ...configData, ...res.data.savedConfig });
+    } catch (e) { toast.error('Erro conexão ERP'); } finally { setLoadingConfig(false); }
+  };
+  const saveConfig = async () => { try { await api.post('/integration/config', configData); toast.success('Salvo!'); } catch (e) { toast.error('Erro salvar'); } };
+
+  // --- Funções Laboratório ---
+  const handleLabGenerate = async () => {
+    if (!labClient) return toast.warning('Digite o nome exato do cliente no ERP.');
+    setTestingLab(true);
+    try {
+      const res = await api.post('/integration/test-full-os', { clientName: labClient });
+      setLastOsId(res.data.osId);
+      setLastOsNumber(res.data.osNumber);
+      toast.success(`Sucesso! OS Nº ${res.data.osNumber} gerada.`);
+    } catch (e) {
       console.error(e);
-      toast.error('Erro ao conectar com ERP.'); 
-    } finally { 
-      setLoadingConfig(false); 
+      toast.error(e.response?.data?.message || 'Falha ao gerar OS de teste.');
+    } finally {
+      setTestingLab(false);
     }
   };
 
-  const saveConfig = async () => {
+  const handleLabRollback = async () => {
+    if (!lastOsId) return;
+    setTestingLab(true);
     try {
-      await api.post('/integration/config', configData);
-      toast.success('Configurações salvas com sucesso!');
-    } catch (e) { toast.error('Erro ao salvar configurações.'); }
+      await api.delete(`/integration/test-full-os/${lastOsId}`);
+      toast.info(`Rollback: OS Nº ${lastOsNumber} removida.`);
+      setLastOsId(null);
+      setLastOsNumber(null);
+    } catch (e) {
+      toast.error('Erro no rollback.');
+    } finally {
+      setTestingLab(false);
+    }
   };
 
   const isConfigComplete = configData.empresaId && configData.objetoId && configData.produtoServicoId && configData.operacaoFiscalId;
@@ -102,9 +100,10 @@ const Settings = () => {
       <Typography variant="h4" fontWeight="800" color="primary.main" mb={3}>Configurações</Typography>
       
       <Paper square elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, bgcolor: 'transparent' }}>
-        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} variant={isMobile ? "fullWidth" : "standard"}>
+        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
           <Tab icon={<People />} iconPosition="start" label="Usuários" />
           <Tab icon={<SettingsInputComponent />} iconPosition="start" label="Integração ERP" />
+          <Tab icon={<Science />} iconPosition="start" label="Laboratório (Beta)" sx={{ color: 'secondary.main' }} />
         </Tabs>
       </Paper>
 
@@ -134,67 +133,115 @@ const Settings = () => {
       {/* ABA INTEGRAÇÃO */}
       {tabValue === 1 && (
         <Paper elevation={0} sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, border: '1px solid #e2e8f0', maxWidth: 800 }}>
-          
-          <Box display="flex" flexDirection="column" gap={1} mb={4}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" fontWeight="bold">Parâmetros de Integração</Typography>
-              <Chip 
-                icon={isConfigComplete ? <CheckCircle /> : <ErrorOutline />}
-                label={isConfigComplete ? "Configuração Pronta" : "Incompleto"} 
-                color={isConfigComplete ? "success" : "warning"} 
-                variant={isConfigComplete ? "filled" : "outlined"}
-              />
-            </Box>
-            {!isConfigComplete && (
-              <Alert severity="warning">Para gerar faturamento, preencha todos os campos obrigatórios abaixo.</Alert>
-            )}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Typography variant="h6" fontWeight="bold">Parâmetros de Integração</Typography>
+            <Chip 
+              icon={isConfigComplete ? <CheckCircle /> : <ErrorOutline />}
+              label={isConfigComplete ? "Configuração Pronta" : "Incompleto"} 
+              color={isConfigComplete ? "success" : "warning"} 
+              variant={isConfigComplete ? "filled" : "outlined"}
+            />
           </Box>
           
-          {loadingConfig ? <Box display="flex" justifyContent="center"><CircularProgress /></Box> : (
+          {loadingConfig ? <CircularProgress /> : (
             <Box display="flex" flexDirection="column" gap={3}>
-              
               <Divider textAlign="left"><Chip label="Dados Gerais" /></Divider>
               <FormControl fullWidth size="small">
-                <InputLabel>Empresa Matriz (Emitente)</InputLabel>
-                <Select value={configData.empresaId} label="Empresa Matriz (Emitente)" onChange={e => setConfigData({...configData, empresaId: e.target.value})}>
-                  {integrationOptions.empresas.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
+                <InputLabel>Empresa Matriz</InputLabel>
+                <Select value={configData.empresaId} label="Empresa Matriz" onChange={e => setConfigData({...configData, empresaId: e.target.value})}>
+                  {integrationOptions.empresas?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
                 </Select>
               </FormControl>
-              
               <FormControl fullWidth size="small">
-                <InputLabel>Objeto Padrão (Equipamento)</InputLabel>
-                <Select value={configData.objetoId} label="Objeto Padrão (Equipamento)" onChange={e => setConfigData({...configData, objetoId: e.target.value})}>
-                  {integrationOptions.objetos.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
+                <InputLabel>Objeto Padrão</InputLabel>
+                <Select value={configData.objetoId} label="Objeto Padrão" onChange={e => setConfigData({...configData, objetoId: e.target.value})}>
+                  {integrationOptions.objetos?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
                 </Select>
               </FormControl>
               
               <Divider textAlign="left"><Chip label="Financeiro (Obrigatório)" color="primary" /></Divider>
-              
               <FormControl fullWidth required>
                 <InputLabel>Serviço (Hora Técnica)</InputLabel>
                 <Select value={configData.produtoServicoId} label="Serviço (Hora Técnica)" onChange={e => setConfigData({...configData, produtoServicoId: e.target.value})}>
-                  <MenuItem value=""><em>Selecione...</em></MenuItem>
-                  {integrationOptions.servicos.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
+                  {integrationOptions.servicos?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
                 </Select>
               </FormControl>
-
               <FormControl fullWidth required>
                 <InputLabel>Operação Fiscal (CFOP)</InputLabel>
                 <Select value={configData.operacaoFiscalId} label="Operação Fiscal (CFOP)" onChange={e => setConfigData({...configData, operacaoFiscalId: e.target.value})}>
-                  <MenuItem value=""><em>Selecione...</em></MenuItem>
-                  {integrationOptions.operacoes.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
+                  {integrationOptions.operacoes?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}
                 </Select>
               </FormControl>
 
-              <Divider textAlign="left"><Chip label="Campos Extras (Opcional)" /></Divider>
-              <Box display="flex" gap={2} flexDirection={isMobile ? 'column' : 'row'}>
-                <FormControl fullWidth size="small"><InputLabel>Data Início</InputLabel><Select value={configData.campoInicioId} label="Data Início" onChange={e => setConfigData({...configData, campoInicioId: e.target.value})}><MenuItem value=""><em>Nenhum</em></MenuItem>{integrationOptions.tipos.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}</Select></FormControl>
-                <FormControl fullWidth size="small"><InputLabel>Data Fim</InputLabel><Select value={configData.campoFimId} label="Data Fim" onChange={e => setConfigData({...configData, campoFimId: e.target.value})}><MenuItem value=""><em>Nenhum</em></MenuItem>{integrationOptions.tipos.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}</Select></FormControl>
+              <Divider textAlign="left"><Chip label="Campos Extras" /></Divider>
+              <Box display="flex" gap={2}>
+                <FormControl fullWidth size="small"><InputLabel>Data Início</InputLabel><Select value={configData.campoInicioId} label="Data Início" onChange={e => setConfigData({...configData, campoInicioId: e.target.value})}><MenuItem value=""><em>Nenhum</em></MenuItem>{integrationOptions.tipos?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}</Select></FormControl>
+                <FormControl fullWidth size="small"><InputLabel>Data Fim</InputLabel><Select value={configData.campoFimId} label="Data Fim" onChange={e => setConfigData({...configData, campoFimId: e.target.value})}><MenuItem value=""><em>Nenhum</em></MenuItem>{integrationOptions.tipos?.map(opt => <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>)}</Select></FormControl>
               </Box>
 
-              <Button variant="contained" size="large" onClick={saveConfig} sx={{ mt: 2 }}>Salvar Configurações</Button>
+              <Button variant="contained" onClick={saveConfig}>Salvar Configurações</Button>
             </Box>
           )}
+        </Paper>
+      )}
+
+      {/* ABA LABORATÓRIO (EXPERIMENTAL) */}
+      {tabValue === 2 && (
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px dashed #9333ea', bgcolor: '#faf5ff', maxWidth: 800 }}>
+          <Box display="flex" alignItems="center" gap={2} mb={3}>
+            <Science fontSize="large" color="secondary" />
+            <Box>
+              <Typography variant="h6" fontWeight="bold" color="secondary.main">Laboratório de Testes</Typography>
+              <Typography variant="body2" color="text.secondary">Gere Ordens de Serviço reais no ERP para fins de validação.</Typography>
+            </Box>
+          </Box>
+
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            Use esta ferramenta com cuidado. Ela insere dados reais na tabela de Movimentações do ERP.
+            Certifique-se de usar o botão <b>Rollback</b> após o teste para limpar a sujeira.
+          </Alert>
+
+          <Stack spacing={3}>
+            <TextField 
+              label="Nome Exato do Cliente (ERP)" 
+              placeholder="Ex: KAUE KEISER LINDNER"
+              fullWidth 
+              value={labClient} 
+              onChange={(e) => setLabClient(e.target.value)}
+              helperText="O nome deve ser idêntico ao cadastro no Digisat."
+            />
+
+            <Box display="flex" gap={2}>
+              <Button 
+                variant="contained" 
+                color="secondary" 
+                size="large"
+                startIcon={testingLab ? <CircularProgress size={20} color="inherit"/> : <ReceiptLong />}
+                onClick={handleLabGenerate}
+                disabled={testingLab || !isConfigComplete}
+              >
+                Gerar OS de Teste
+              </Button>
+
+              <Button 
+                variant="outlined" 
+                color="error" 
+                size="large"
+                startIcon={<Undo />}
+                onClick={handleLabRollback}
+                disabled={!lastOsId || testingLab}
+              >
+                Rollback (Deletar OS {lastOsNumber})
+              </Button>
+            </Box>
+
+            {lastOsId && (
+              <Alert severity="success" icon={<CheckCircle fontSize="inherit" />}>
+                OS gerada com sucesso! ID Interno: {lastOsId} <br/>
+                Verifique no ERP se os dados conferem (Itens, Financeiro, Cliente).
+              </Alert>
+            )}
+          </Stack>
         </Paper>
       )}
       

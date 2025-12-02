@@ -13,6 +13,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/integration', require('./routes/integrationRoutes'));
+app.use('/api/billing', require('./routes/billingRoutes'));
 
 
 module.exports = app;

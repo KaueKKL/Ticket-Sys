@@ -26,7 +26,8 @@ const TicketList = () => {
   const { user } = useContext(AuthContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFinalized, setShowFinalized] = useState(false);
-  const [technicianFilter, setTechnicianFilter] = useState(user?.name || 'Todos');
+  // FIX 1: Inicializa com 'Todos' para evitar erro de "out-of-range" antes dos usuários carregarem
+  const [technicianFilter, setTechnicianFilter] = useState('Todos');
   const [open, setOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
   const [formData, setFormData] = useState({ client: '', reason: '', solution: '', status: 'Em Andamento' });
@@ -37,7 +38,7 @@ const TicketList = () => {
   const [inputValue, setInputValue] = useState('');
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Detecta se é celular
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => { fetchUsers(); }, []);
   useEffect(() => { fetchTickets(); }, [technicianFilter]);
@@ -115,13 +116,13 @@ const TicketList = () => {
         </Paper>
       </Box>
 
-      {}
+      {/* Busca e Filtros */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, border: '1px solid #e2e8f0', borderRadius: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: 'center' }}>
         <TextField fullWidth variant="outlined" placeholder="Buscar cliente..." size="small" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>) }} />
         <FormControlLabel control={<Switch checked={showFinalized} onChange={(e) => setShowFinalized(e.target.checked)} />} label={<Typography variant="body2" whiteSpace="nowrap">Histórico</Typography>} />
       </Paper>
 
-      {}
+      {/* Lista de Tickets (Cards no Mobile, Tabela no Desktop) */}
       {isMobile ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {filtered.length === 0 ? (
@@ -130,7 +131,7 @@ const TicketList = () => {
             filtered.map((t) => (
               <Card key={t._id} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3 }}>
                 <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  {}
+                  {/* Cabeçalho do Card */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.2 }}>{t.client}</Typography>
@@ -142,7 +143,7 @@ const TicketList = () => {
                     <Chip label={t.status} color={getStatusColor(t.status)} size="small" sx={{ height: 24, fontSize: '0.7rem' }} />
                   </Box>
                   
-                  {}
+                  {/* Motivo */}
                   <Typography variant="body2" color="text.secondary" sx={{ 
                     mb: 2, 
                     display: '-webkit-box', 
@@ -158,7 +159,7 @@ const TicketList = () => {
 
                   <Divider sx={{ my: 1 }} />
 
-                  {}
+                  {/* Rodapé do Card */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem', bgcolor: 'primary.light' }}>{t.technician.charAt(0)}</Avatar>
@@ -208,7 +209,7 @@ const TicketList = () => {
 
       <Tooltip title="Novo" arrow placement="left"><Fab color="primary" onClick={() => handleOpen()} sx={{ position: 'fixed', bottom: 32, right: 32, zIndex: 1000 }}><AddIcon /></Fab></Tooltip>
 
-      {}
+      {/* Modal Nova/Editar */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: '800', borderBottom: '1px solid #f1f5f9', bgcolor: isMobile ? 'primary.main' : 'white', color: isMobile ? 'white' : 'inherit' }}>
           {editingTicket ? `Ticket #${editingTicket._id.slice(-6)}` : 'Novo Atendimento'}
@@ -216,8 +217,9 @@ const TicketList = () => {
         <DialogContent sx={{ p: 0 }}>
           <Grid container sx={{ height: editingTicket && !isMobile ? 550 : 'auto' }}>
             
-            {}
-            <Grid item xs={12} md={editingTicket ? 7 : 12} sx={{ p: 3, borderRight: { md: '1px solid #f1f5f9' }, borderBottom: { xs: '1px solid #f1f5f9', md: 'none' } }}>
+            {/* Esquerda: Formulário */}
+            {/* FIX 2: Uso correto do Grid V2 (size) */}
+            <Grid size={{ xs: 12, md: editingTicket ? 7 : 12 }} sx={{ p: 3, borderRight: { md: '1px solid #f1f5f9' }, borderBottom: { xs: '1px solid #f1f5f9', md: 'none' } }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <Autocomplete freeSolo options={clientOptions} getOptionLabel={(opt) => (typeof opt === 'string' ? opt : opt.name)} value={formData.client} disabled={!!editingTicket} onChange={(e, val) => setFormData({ ...formData, client: val })} onInputChange={(e, val) => setInputValue(val)} renderInput={(params) => (<TextField {...params} label="Cliente" InputProps={{ ...params.InputProps, startAdornment: <InputAdornment position="start"><PersonSearch color="primary"/></InputAdornment>, endAdornment: (<>{loadingClients ? <CircularProgress size={20} /> : null}{params.InputProps.endAdornment}</>) }} />)} />
                 <TextField label="Motivo" multiline rows={3} value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} />
@@ -237,9 +239,10 @@ const TicketList = () => {
               </Box>
             </Grid>
 
-            {}
+            {/* Direita: Chat/Notas */}
             {editingTicket && (
-              <Grid item xs={12} md={5} sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#fafafa', height: { xs: 400, md: 'auto' } }}>
+              // FIX 2: Uso correto do Grid V2 (size)
+              <Grid size={{ xs: 12, md: 5 }} sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#fafafa', height: { xs: 400, md: 'auto' } }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}><Typography variant="subtitle2" fontWeight="bold">Observações</Typography></Box>
                 <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
                   {editingTicket.notes?.map((n, i) => (

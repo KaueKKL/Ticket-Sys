@@ -1,15 +1,22 @@
-import 'react-toastify/dist/ReactToastify.css';
+import { BrowserRouter } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
-import { CssBaseline, ThemeProvider } from '@mui/material'; // <--- Importe ThemeProvider
+import 'react-toastify/dist/ReactToastify.css';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme';
+import { AuthProvider } from './context/AuthContext'; // <--- Importante
 import AppRoutes from './AppRoutes';
-import theme from './theme'; // <--- Importe o tema criado
 
 function App() {
   return (
-    <ThemeProvider theme={theme}> {/* <--- Envolva o App */}
+    <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ToastContainer autoClose={3000} position="top-right" />
-      <AppRoutes />
+      {/* O AuthProvider deve envolver toda a aplicação que precisa de autenticação */}
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+          <ToastContainer autoClose={3000} />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
